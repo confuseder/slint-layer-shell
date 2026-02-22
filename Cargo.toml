@@ -1,0 +1,33 @@
+[package]
+name = "slint-layer-shell"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["test/minimize-demo", "test/weather-demo"]
+resolver = "2"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+calloop = "0.14.3"
+raw-window-handle = "0.6.2"
+slint = { version = "1.15.1", features = [
+    "std",
+    "renderer-skia",
+    "unstable-wgpu-27",
+    "serde",
+] }
+i-slint-core = { version = "1.15.1" }
+i-slint-renderer-skia = { version = "1.15.1" }
+smithay-client-toolkit = { version = "0.20.0", features = [
+    "calloop",
+    "calloop-wayland-source",
+] }
+wayland-backend = { version = "0.3.12", features = [
+    "client_system",
+    "dlopen",
+    "rwh_06",
+] }
+wayland-client = "0.31.12"
