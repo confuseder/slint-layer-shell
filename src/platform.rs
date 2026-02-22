@@ -1,10 +1,114 @@
-use crate::{SlintLayerShell, window_adapter::LayerShellWindowAdapter};
-use calloop::LoopSignal;
+use crate::window_adapter::LayerShellWindowAdapter;
+use calloop::{EventLoop, LoopSignal};
 use i_slint_core::api::EventLoopError;
 use i_slint_core::platform::{EventLoopProxy, update_timers_and_animations};
+use i_slint_renderer_skia::SkiaSharedContext;
 use slint::platform::{Platform, PlatformError, WindowAdapter, duration_until_next_timer_update};
-use std::rc::Rc;
+use smithay_client_toolkit::compositor::CompositorState;
+use smithay_client_toolkit::output::OutputState;
+use smithay_client_toolkit::reexports::calloop_wayland_source::WaylandSource;
+use smithay_client_toolkit::registry::RegistryState;
+use smithay_client_toolkit::seat::SeatState;
+use smithay_client_toolkit::shell::xdg::XdgShell;
+use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
+use std::rc::{Rc, Weak};
 use std::time::Instant;
+use wayland_backend::client::ObjectId;
+use wayland_client::globals::registry_queue_init;
+use wayland_client::protocol::{wl_keyboard, wl_pointer, wl_touch};
+use wayland_client::{Connection, QueueHandle};
+
+pub struct LayerShellState {
+    pub registry_state: RegistryState,
+    pub compositor_state: CompositorState,
+    pub seat_state: SeatState,
+    pub output_state: OutputState,
+    // pub layer_shell: LayerShell,
+    pub xdg_shell: XdgShell,
+
+    pub skia_shard_context: SkiaSharedContext,
+
+    pub proxied_event_queue: VecDeque<ProxyTask>,
+
+    pub window_adapters: HashMap<ObjectId, Weak<LayerShellWindowAdapter>>,
+    pub window_factory_queue: VecDeque<LayerShellWindowAdapter>,
+    pub keyboard: Option<wl_keyboard::WlKeyboard>,
+    pub pointer: Option<wl_pointer::WlPointer>,
+    pub touch: Option<wl_touch::WlTouch>,
+    pub keyboard_focus_surface: Option<ObjectId>,
+    pub touch_points: HashMap<i32, (ObjectId, (f32, f32))>,
+}
+
+pub struct SlintLayerShell {
+    connection: Connection,
+    // event_queue: EventQueue<LayerShellState>,
+    queue_handle: QueueHandle<LayerShellState>,
+    state: Rc<RefCell<LayerShellState>>,
+    event_loop: RefCell<EventLoop<'static, LayerShellState>>,
+    loop_signal: LoopSignal,
+
+    should_close: bool,
+}
+
+impl SlintLayerShell {
+    pub fn new() -> Self {
+        let event_loop = EventLoop::try_new().unwrap();
+        let loop_signal = event_loop.get_signal();
+
+        let connection = Connection::connect_to_env().unwrap();
+        let (global, event_queue) = registry_queue_init(&connection).unwrap();
+        let qh = event_queue.handle();
+
+        let event_source = WaylandSource::<LayerShellState>::new(connection.clone(), event_queue);
+
+        let _ = event_loop
+            .handle()
+            .insert_source(event_source, |_, queue, state| {
+                queue.dispatch_pending(state)
+            });
+
+        let registry_state = RegistryState::new(&global);
+        let compositor_state = CompositorState::bind(&global, &qh).unwrap();
+        let seat_state = SeatState::new(&global, &qh);
+        let output_state = OutputState::new(&global, &qh);
+        // let layer_shell = LayerShell::bind(&global, &qh).unwrap();
+        let xdg_shell = XdgShell::bind(&global, &qh).unwrap();
+
+        let skia_shard_context = SkiaSharedContext::default();
+
+        let state = LayerShellState {
+            registry_state,
+            compositor_state,
+            seat_state,
+            output_state,
+            // layer_shell,
+            xdg_shell,
+
+            skia_shard_context,
+
+            proxied_event_queue: VecDeque::new(),
+
+            window_adapters: HashMap::new(),
+            window_factory_queue: VecDeque::new(),
+            keyboard: None,
+            pointer: None,
+            touch: None,
+            keyboard_focus_surface: None,
+            touch_points: HashMap::new(),
+        };
+
+        Self {
+            connection,
+            queue_handle: qh,
+            // event_queue: RefCell::new(event_queue),
+            state: Rc::new(RefCell::new(state)),
+            event_loop: RefCell::new(event_loop),
+            loop_signal,
+            should_close: false,
+        }
+    }
+}
 
 impl Platform for SlintLayerShell {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {

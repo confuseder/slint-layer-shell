@@ -10,15 +10,18 @@ resolver = "2"
 [lib]
 path = "src/lib.rs"
 
-[dependencies]
-calloop = "0.14.3"
-raw-window-handle = "0.6.2"
+[workspace.dependencies]
 slint = { version = "1.15.1", features = [
     "std",
     "renderer-skia",
     "unstable-wgpu-27",
     "serde",
 ] }
+
+[dependencies]
+calloop = "0.14.3"
+raw-window-handle = "0.6.2"
+slint = { workspace = true }
 i-slint-core = { version = "1.15.1" }
 i-slint-renderer-skia = { version = "1.15.1" }
 smithay-client-toolkit = { version = "0.20.0", features = [

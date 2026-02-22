@@ -4,6 +4,7 @@
 #![cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
 
 use crate::app_main::AppHandler;
+use slint_layer_shell::platform::SlintLayerShell;
 
 pub mod ui {
     slint::include_modules!();
@@ -21,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .init();
 
-    slint::platform::set_platform(Box::new(slint_layer_shell::SlintLayerShell::new()))?;
+    slint::platform::set_platform(Box::new(SlintLayerShell::new()))?;
 
     let mut app_handler = AppHandler::new();
     app_handler.initialize_ui();

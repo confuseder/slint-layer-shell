@@ -1,4 +1,4 @@
-use crate::LayerShellState;
+use crate::platform::LayerShellState;
 use i_slint_renderer_skia::SkiaRenderer;
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
@@ -79,11 +79,12 @@ impl LayerShellWindowAdapter {
             surface: surface.clone(),
             connection: connection.clone(),
         });
-        let render = SkiaRenderer::new(
-            &skia_context,
+        let render = SkiaRenderer::default_wgpu_27(&skia_context);
+        render.set_window_handle(
             handle_helper.clone(),
-            handle_helper,
-            PhysicalSize::new(100, 100),
+            handle_helper.clone(),
+            PhysicalSize::new(120, 120),
+            None,
         )?;
 
         let xdg_window = {
@@ -94,7 +95,6 @@ impl LayerShellWindowAdapter {
         };
         xdg_window.set_title("slint-layer-shell");
         xdg_window.set_app_id("slint-layer-shell");
-        // Initial commit is required before the compositor sends first configure.
         xdg_window.commit();
 
         let adapter = Rc::new_cyclic(|weak_self: &std::rc::Weak<Self>| {

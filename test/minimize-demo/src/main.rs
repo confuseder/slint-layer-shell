@@ -41,7 +41,7 @@ slint::slint! {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    slint::platform::set_platform(Box::new(slint_layer_shell::SlintLayerShell::new()))?;
+    slint::platform::set_platform(Box::new(slint_layer_shell::platform::SlintLayerShell::new()))?;
 
     let ui = MinimizeDemo::new()?;
 
